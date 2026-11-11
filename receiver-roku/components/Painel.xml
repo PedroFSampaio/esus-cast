@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="Painel" extends="Scene">
+    <script type="text/brightscript" uri="pkg:/components/Painel.brs" />
+    <children>
+        <Group id="quadros" />
+        <Label id="aviso" width="1280" height="720" horizAlign="center"
+               vertAlign="center" text="Aguardando conexão com o painel" visible="false" />
+        <Group id="configuracao">
+            <Rectangle width="1280" height="720" color="0x102338FF" />
+            <Label translation="[96,65]" width="1088" height="58"
+                   font="font:LargeBoldSystemFont" text="e-SUS Cast" />
+            <Label id="dados" translation="[96,145]" width="1088" height="45" />
+            <ButtonGroup id="botoes" translation="[96,220]" />
+            <Label id="resultado" translation="[96,575]" width="1088" height="70" wrap="true" />
+        </Group>
+        <Timer id="consulta" duration="2" repeat="false" />
+        <Timer id="limite" duration="5" repeat="false" />
+    </children>
+</component>
