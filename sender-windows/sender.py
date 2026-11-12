@@ -1,4 +1,4 @@
-"""Servidor HTTP do painel fictício da Fase 1."""
+"""Transmissor HTTP do e-SUS Cast para a Roku."""
 
 import argparse
 from datetime import datetime, timedelta
@@ -58,10 +58,10 @@ def desenhar_painel(numero, horario):
 
 
 class ServidorPainel(ThreadingHTTPServer):
-    def __init__(self, endereco, ip_roku, token):
+    def __init__(self, endereco, ip_roku, token, painel=None):
         self.ips_permitidos = {endereco[0], "127.0.0.1", ip_roku}
         self.token = token
-        self.painel = Painel()
+        self.painel = painel if painel is not None else Painel()
         super().__init__(endereco, RequisicaoPainel)
 
     def get_request(self):
@@ -100,7 +100,11 @@ class RequisicaoPainel(BaseHTTPRequestHandler):
             self.responder(HTTPStatus.FORBIDDEN, b"Token invalido.\n")
             return
 
-        self.responder(HTTPStatus.OK, self.server.painel.obter_jpeg(), "image/jpeg")
+        jpeg = self.server.painel.obter_jpeg()
+        if jpeg is None:
+            self.responder(HTTPStatus.SERVICE_UNAVAILABLE, b"Painel indisponivel.\n")
+            return
+        self.responder(HTTPStatus.OK, jpeg, "image/jpeg")
 
     def responder(self, status, corpo, tipo="text/plain; charset=utf-8"):
         self.send_response(status)
@@ -128,6 +132,7 @@ def main():
     parser.add_argument("--roku", type=ipv4_local, help="IPv4 do único receptor permitido")
     parser.add_argument("--porta", type=int, default=8766)
     parser.add_argument("--token", help="16 dígitos hexadecimais minúsculos para retomar um teste")
+    parser.add_argument("--guiche", action="store_true", help="Captura o painel da TV do Guichê Policlínica no Edge")
     args = parser.parse_args()
     if args.ip != "127.0.0.1" and args.roku is None:
         parser.error("Informe --roku para servir em rede.")
@@ -138,12 +143,24 @@ def main():
 
     token = args.token or secrets.token_hex(8)
     try:
-        with ServidorPainel((args.ip, args.porta), args.roku, token) as servidor:
-            print(f"Painel fictício em http://{args.ip}:{args.porta}/frame.jpg", flush=True)
+        if args.guiche:
+            try:
+                from guiche import QuadroGuiche, transmitir
+            except ModuleNotFoundError:
+                parser.exit(1, "Instale o modo Guichê com scripts\\preparar-guiche.cmd.\n")
+            painel = QuadroGuiche()
+        else:
+            painel = Painel()
+        with ServidorPainel((args.ip, args.porta), args.roku, token, painel) as servidor:
+            fonte = "Guichê Policlínica" if args.guiche else "Painel fictício"
+            print(f"{fonte} em http://{args.ip}:{args.porta}/frame.jpg", flush=True)
             print(f"Roku permitida: {args.roku or 'teste local'}", flush=True)
             print(f"Token da sessão: {token}", flush=True)
             print("Pressione Ctrl+C para parar.", flush=True)
-            servidor.serve_forever()
+            if args.guiche:
+                transmitir(servidor, painel)
+            else:
+                servidor.serve_forever()
     except KeyboardInterrupt:
         print("Servidor encerrado.")
     except OSError as erro:

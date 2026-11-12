@@ -2,6 +2,8 @@
 
 Prova de conceito para exibir um painel fictício do Windows em uma Roku TV pela rede local. O servidor entrega JPEG de 1280 × 720 com uma senha fictícia, número do quadro e horário de referência. A Roku consulta a imagem aproximadamente a cada dois segundos e usa um `Poster` do SceneGraph para exibi-la em tela cheia, mantendo a proporção.
 
+O [modo Guichê Policlínica](#modo-guichê-policlínica) usa o painel de TV do sistema já hospedado na prefeitura como fonte de imagem.
+
 - [Servidor Windows](sender-windows/sender.py)
 - [Receptor Roku](receiver-roku/)
 - [ZIP de sideload](dist/esus-cast-roku.zip)
@@ -71,3 +73,28 @@ Esta fase usa Python/Pillow e JPEG para validar o caminho de rede e a exibição
 - [SceneGraph Poster](https://github.com/rokudev/dev-doc/blob/v2.0/docs/REFERENCES/scenegraph/renderable-nodes/poster.md) e [reprodução de vídeo em SceneGraph para a etapa HLS](https://github.com/rokudev/dev-doc/blob/v2.0/docs/DEVELOPER/core-concepts/playing-videos.md).
 - [Roku External Control Protocol para etapas futuras](https://github.com/rokudev/dev-doc/blob/v2.0/docs/DEVELOPER/dev-tools/external-control-api.md).
 - [Dowe LanCaster, referência de arquitetura](https://github.com/mrjohndowe/Dowe_LanCaster#features). A implementação do e-SUS Cast foi escrita do zero.
+
+## Modo Guichê Policlínica
+
+O transmissor abre o [painel de TV do Guichê](https://chat.saomanuel.sp.gov.br/?panel=tv) em uma janela dedicada do Microsoft Edge. Entre manualmente com uma conta de perfil **Painel da TV**. Na recepção ou na administração do Guichê, abra o controle da televisão e libere a sessão. O transmissor publica somente o elemento do painel após confirmar que a sessão está autorizada. Login, tela de liberação, sessão expirada e falha de conexão deixam a imagem indisponível.
+
+O Guichê precisa da correção de exibição da próxima senha para que o painel de TV continue funcionando quando houver pessoas na fila. A versão anterior tenta acessar o nome da próxima pessoa, um campo que a API omite para o perfil TV. A correção usa a senha de atendimento já disponível nesse perfil.
+
+1. Use um Windows com Microsoft Edge instalado, acesso ao Guichê por HTTPS e conectividade com a Roku. Instale as dependências na pasta do projeto.
+
+   ```powershell
+   .\scripts\preparar-guiche.cmd
+   ```
+
+   Em rede com proxy, também é possível passar `--no-index --find-links C:\caminho\dos\wheels` com os wheels compatíveis de Pillow, Playwright e greenlet.
+
+2. Inicie o transmissor. Substitua os IPs de exemplo pelos do Windows e da Roku.
+
+   ```powershell
+   .\scripts\iniciar-windows.cmd --guiche --ip 192.168.1.10 --roku 192.168.1.20 --porta 8766
+   ```
+
+3. Faça login no Edge e libere a sessão no Guichê. Mantenha a janela dedicada aberta. Após o terminal indicar **Painel da TV disponível**, use o IP do Windows, a porta e o token no mesmo receptor Roku descrito acima.
+4. No ambiente de teste, registre e chame uma senha fictícia. Verifique a senha na TV e a mudança da lista de chamadas. Desconecte a sessão de TV pelo Guichê e confirme que a Roku substitui a imagem pelo aviso de conexão.
+
+O modo Guichê transmite a imagem, inclusive os nomes que o painel de TV autorizado exibe nas chamadas. O trecho Windows → Roku usa HTTP sem criptografia. Use dados fictícios na validação e condicione o uso operacional à autorização da TI e a uma rede de TV isolada. O acesso ao site pelo Edge usa HTTPS e mantém a autenticação existente. O transmissor guarda o JPEG em memória e a Roku recebe somente a imagem. O áudio continua no navegador do Windows. Use uma única sessão de TV dedicada ao piloto, porque o próprio painel do Guichê processa a fila de anúncios. Ao fechar a janela dedicada ou parar o transmissor, é necessário fazer login novamente na próxima execução.

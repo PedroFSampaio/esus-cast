@@ -74,6 +74,14 @@ class TesteServidor(unittest.TestCase):
         self.assertEqual(self.get(f"/outro?token={TOKEN}")[0], 404)
         self.assertEqual(self.get("/frame.jpg?a=1&b=2&c=3&d=4&e=5")[0], 400)
 
+    def test_painel_indisponivel_retorna_503_sem_imagem(self):
+        with patch.object(self.servidor.painel, "obter_jpeg", return_value=None):
+            status, headers, corpo = self.get(f"/frame.jpg?token={TOKEN}")
+            self.assertEqual(status, 503)
+            self.assertIn("no-store", headers["Cache-Control"])
+            self.assertTrue(headers["Content-Type"].startswith("text/plain"))
+            self.assertNotIn(b"\xff\xd8", corpo)
+
 
 class TesteValidacao(unittest.TestCase):
     def test_ipv4_local(self):
